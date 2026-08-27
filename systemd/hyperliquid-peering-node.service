@@ -1,0 +1,20 @@
+[Unit]
+Description=Hyperliquid non-validating node (Docker Compose)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/opt/hyperliquid-peering-node/docker-compose.yml
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/hyperliquid-peering-node
+ExecStartPre=/usr/bin/docker compose config --quiet
+ExecStart=/usr/bin/docker compose up -d --build
+ExecReload=/usr/bin/docker compose up -d --build --force-recreate
+ExecStop=/usr/bin/docker compose stop --timeout 120
+TimeoutStartSec=0
+TimeoutStopSec=240
+
+[Install]
+WantedBy=multi-user.target
