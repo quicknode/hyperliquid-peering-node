@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        run: bash -n scripts/*.sh
+
+      - name: Check Python syntax
+        run: |
+          PYTHONPYCACHEPREFIX="$RUNNER_TEMP/pycache" \
+            python3 -m py_compile scripts/*.py
+
+      - name: Test peer-isolation verifier
+        run: python3 -m unittest discover --start-directory tests --verbose
+
+      - name: Validate systemd lifecycle unit
+        run: |
+          grep --fixed-strings --quiet \
+            'ExecReload=/usr/bin/docker compose up -d --build --force-recreate' \
+            systemd/hyperliquid-peering-node.service
+          systemd-analyze verify systemd/hyperliquid-peering-node.service
+
+      - name: Render Docker Compose configuration
+        run: docker compose --env-file .env.example config --quiet
+
+      - name: Confirm documentation placeholders fail closed
+        run: |
+          if ENV_FILE=.env.example RUNTIME_DIR="$RUNNER_TEMP/config" \
+            ./scripts/render-config.sh; then
+            echo "Documentation placeholders unexpectedly passed validation" >&2
+            exit 1
+          fi
+
+      - name: Build image and verify signed Mainnet visor
+        run: docker build --pull --tag hyperliquid-peering-node:ci .

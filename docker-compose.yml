@@ -1,0 +1,85 @@
+name: hyperliquid-peering
+
+services:
+  config:
+    image: hyperliquid-peering-node:local
+    build:
+      context: .
+      args:
+        UPSTREAM_COMMIT: 405cc08b17a727ee51b0f9128918955a84439915
+    environment:
+      ENV_FILE: /run/hyperliquid-input/node.env
+      RUNTIME_DIR: /run/hyperliquid-config
+    volumes:
+      - type: bind
+        source: ./.env
+        target: /run/hyperliquid-input/node.env
+        read_only: true
+        bind:
+          create_host_path: false
+      - hl-config:/run/hyperliquid-config
+    entrypoint: ["/usr/local/bin/config-init.sh"]
+    restart: "no"
+
+  node:
+    image: hyperliquid-peering-node:local
+    # The config service builds this local image first. Never attempt a registry
+    # pull for this deliberately unpublished tag.
+    pull_policy: never
+    depends_on:
+      config:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 120s
+    environment:
+      MIN_FREE_PERCENT: "${MIN_FREE_PERCENT:-20}"
+      OUTPUT_STALE_MINUTES: "${OUTPUT_STALE_MINUTES:-5}"
+      REQUIRE_MEMPOOL: "${REQUIRE_MEMPOOL:-false}"
+    ports:
+      - "4001-4002:4001-4002/tcp"
+    volumes:
+      - hl-home:/home/hluser/hl
+      - hl-config:/run/hyperliquid-config:ro
+    logging:
+      driver: local
+      options:
+        max-size: "100m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15m
+
+  pruner:
+    image: hyperliquid-peering-node:local
+    pull_policy: never
+    depends_on:
+      node:
+        condition: service_started
+    restart: unless-stopped
+    user: "10000:10000"
+    environment:
+      BLOCK_RETENTION_MINUTES: "${BLOCK_RETENTION_MINUTES:-1440}"
+      LOG_RETENTION_MINUTES: "${LOG_RETENTION_MINUTES:-1440}"
+      MEMPOOL_RETENTION_MINUTES: "${MEMPOOL_RETENTION_MINUTES:-360}"
+      PRUNE_ENABLED: "${PRUNE_ENABLED:-false}"
+      PRUNE_INTERVAL_SECONDS: "${PRUNE_INTERVAL_SECONDS:-1800}"
+      PRUNE_MODE: "${PRUNE_MODE:-dry-run}"
+      PRUNE_START_DELAY_SECONDS: "${PRUNE_START_DELAY_SECONDS:-900}"
+    volumes:
+      - hl-home:/home/hluser/hl
+    entrypoint: ["/usr/local/bin/prune-loop.sh"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/pruner-healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  hl-config:
+    driver: local
+  hl-home:
+    driver: local
