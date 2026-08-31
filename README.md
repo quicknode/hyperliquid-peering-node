@@ -44,7 +44,9 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Edit `.env` and replace every documentation address with the values supplied for your deployment. Keep:
+Edit `.env` and **replace the placeholder addresses** in `PUBLIC_IP`, `QUICKNODE_ROOT_NODE_IPS`, and `QUICKNODE_RESERVED_PEER_IPS` with the values supplied for your deployment.
+
+Keep:
 
 ```dotenv
 PEER_MODE=quicknode
@@ -273,7 +275,7 @@ Do not run it on a production node. It requires root and an explicit `CONFIRM_UN
 
 | Symptom                                                | Likely cause or next check                                                                                                    |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Configuration container exits non-zero                 | Replace documentation addresses, remove duplicates, and confirm every required `.env` value.                                  |
+| Configuration container exits non-zero                 | Replace placeholder addresses, remove duplicates, and confirm every required `.env` value.                                    |
 | Node cannot establish the initial peer path            | Confirm Quicknode allowlisted the advertised public IPv4 and verify TCP `4001`-`4002` through the cloud firewall.             |
 | Compose is running but `verify.sh` fails               | The node may still be receiving or replaying a checkpoint. Check applied heights and wait for fresh output.                   |
 | Mempool output is missing                              | Confirm `SPLIT_CLIENT_BLOCKS=true`, `REQUIRE_MEMPOOL=true`, and that the supplied upstream path supports split client blocks. |
